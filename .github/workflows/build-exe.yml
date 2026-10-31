@@ -26,6 +26,7 @@ jobs:
           A=""
           if grep -q "import pyttsx3" "$D/app.py"; then pip install pyttsx3; A="$A --hidden-import pyttsx3.drivers.sapi5"; fi
           if grep -q "import speech_recognition" "$D/app.py"; then pip install SpeechRecognition sounddevice numpy; A="$A --collect-all speech_recognition --collect-all sounddevice"; fi
+          if grep -q "^import webview" "$D/app.py"; then pip install pywebview; A="$A --collect-all webview --collect-all clr_loader --collect-all pythonnet --exclude-module PySide6"; fi
           [ -f "$D/icon.ico" ] && A="$A --icon $D/icon.ico"
           [ -f "$D/version.txt" ] && A="$A --version-file $D/version.txt"
           pyinstaller --onefile --noconsole --noupx --name "${{ inputs.name }}" $A "$D/app.py"
