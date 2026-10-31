@@ -1,0 +1,32 @@
+name: build-exe
+run-name: build ${{ inputs.id }}
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        required: true
+      name:
+        required: true
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller pyside6
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          D="jobs/${{ inputs.id }}"
+          A=""
+          if grep -q "import pyttsx3" "$D/app.py"; then pip install pyttsx3; A="$A --hidden-import pyttsx3.drivers.sapi5"; fi
+          if grep -q "import speech_recognition" "$D/app.py"; then pip install SpeechRecognition sounddevice numpy; A="$A --collect-all speech_recognition --collect-all sounddevice"; fi
+          [ -f "$D/icon.ico" ] && A="$A --icon $D/icon.ico"
+          [ -f "$D/version.txt" ] && A="$A --version-file $D/version.txt"
+          pyinstaller --onefile --noconsole --noupx --name "${{ inputs.name }}" $A "$D/app.py"
+          gh release create "exe-${{ inputs.id }}" "dist/${{ inputs.name }}.exe" --title "${{ inputs.name }}" --notes "UGCO EXE"
