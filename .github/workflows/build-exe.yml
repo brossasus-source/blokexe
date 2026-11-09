@@ -19,13 +19,22 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pyinstaller pyside6
+      - name: Kaynağı geçici release'ten indir
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JID: ${{ inputs.id }}
+        run: |
+          mkdir -p work
+          gh release download "src-$JID" --dir work --clobber
+          ls -la work
       - shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JID: ${{ inputs.id }}
           JNAME: ${{ inputs.name }}
         run: |
-          D="jobs/$JID"
+          D="work"
           A=""
           if grep -q "import pyttsx3" "$D/app.py"; then pip install pyttsx3; A="$A --hidden-import pyttsx3.drivers.sapi5"; fi
           if grep -q "import speech_recognition" "$D/app.py"; then pip install SpeechRecognition sounddevice numpy; A="$A --collect-all speech_recognition --collect-all sounddevice"; fi
@@ -34,10 +43,19 @@ jobs:
           [ -f "$D/version.txt" ] && A="$A --version-file $D/version.txt"
           pyinstaller --onefile --noconsole --noupx --name "$JNAME" $A "$D/app.py"
           gh release create "exe-$JID" "dist/$JNAME.exe" --title "$JNAME" --notes "UGCO EXE"
-      - name: 14 günden eski sürümleri temizle
+      - name: Geçici kaynak release'ini sil
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JID: ${{ inputs.id }}
+        run: |
+          gh release delete "src-$JID" --cleanup-tag -y || true
+      - name: Eski sürümleri temizle (exe- 14 gün, src- 1 gün)
         if: always()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release list --limit 200 --json tagName,createdAt --jq '.[] | select((.tagName|startswith("exe-")) and (.createdAt < (now-1209600|todate))) | .tagName' | while read -r t; do gh release delete "$t" --cleanup-tag -y || true; done || true
+          gh release list --limit 200 --json tagName,createdAt --jq '.[] | select((.tagName|startswith("src-")) and (.createdAt < (now-86400|todate))) | .tagName' | while read -r t; do gh release delete "$t" --cleanup-tag -y || true; done || true
